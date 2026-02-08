@@ -1,1 +1,651 @@
-<html><body>MAINTENANCE</body></html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Bowl LX Squares Tracker</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    background: #0a0e1a;
+    color: #e0e0e0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 20px;
+  }
+
+  /* Score Banner */
+  .scoreboard {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 30px;
+    background: linear-gradient(135deg, #1a1f35, #252b45);
+    border: 1px solid #333;
+    border-radius: 16px;
+    padding: 20px 40px;
+    margin-bottom: 20px;
+    width: 100%;
+    max-width: 700px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+  }
+  .team {
+    text-align: center;
+    min-width: 140px;
+  }
+  .team-name {
+    font-size: 14px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    margin-bottom: 4px;
+  }
+  .team-name.patriots { color: #c8102e; }
+  .team-name.seahawks { color: #69be28; }
+  .team-score {
+    font-size: 56px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  .score-divider {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .game-status {
+    font-size: 16px;
+    font-weight: 700;
+    color: #ffd700;
+  }
+  .game-clock {
+    font-size: 13px;
+    color: #888;
+  }
+  .last-digit-indicator {
+    font-size: 11px;
+    color: #666;
+    margin-top: 2px;
+  }
+
+  /* Refresh controls */
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 16px;
+  }
+  .highlight-input {
+    background: #1a1f35;
+    color: #ffd700;
+    border: 1px solid #444;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    width: 170px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .highlight-input:focus { border-color: #ffd700; }
+  .highlight-input::placeholder { color: #555; }
+  .refresh-btn {
+    background: #2a3050;
+    color: #e0e0e0;
+    border: 1px solid #444;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.2s;
+  }
+  .refresh-btn:hover { background: #3a4060; }
+  .refresh-status {
+    font-size: 12px;
+    color: #666;
+  }
+
+  /* Grid */
+  .grid-wrapper {
+    overflow-x: auto;
+    max-width: 100%;
+  }
+  table {
+    border-collapse: collapse;
+    background: #151a2e;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+  }
+  th, td {
+    border: 1px solid #2a2f45;
+    text-align: center;
+    font-size: 12px;
+    width: 100px;
+    height: 58px;
+    padding: 4px;
+    position: relative;
+  }
+  th {
+    background: #1e2440;
+    font-weight: 700;
+    font-size: 14px;
+    color: #ccc;
+  }
+  .col-header { color: #c8102e; }
+  .row-header { color: #69be28; }
+  .corner {
+    background: #0f1225;
+    font-size: 11px;
+    color: #555;
+  }
+
+  /* Cell states */
+  td.cell {
+    background: #1a1f35;
+    transition: all 0.3s ease;
+    cursor: default;
+  }
+  td.cell:hover {
+    background: #252b45;
+  }
+  .cell-name {
+    font-size: 11px;
+    line-height: 1.3;
+    word-break: break-word;
+  }
+
+  /* Aaron highlight */
+  td.highlight {
+    background: rgba(255, 200, 0, 0.15) !important;
+    box-shadow: inset 0 0 0 2px rgba(255, 200, 0, 0.4);
+  }
+  td.highlight .cell-name {
+    color: #ffd700;
+    font-weight: 700;
+  }
+
+  /* Current winning square */
+  td.winner {
+    animation: pulse-winner 1.5s ease-in-out infinite;
+    z-index: 2;
+  }
+  td.winner::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border: 3px solid #00ff88;
+    border-radius: 2px;
+    pointer-events: none;
+  }
+  td.highlight.winner {
+    background: rgba(0, 255, 100, 0.25) !important;
+    box-shadow: inset 0 0 0 2px #ffd700;
+  }
+  td.highlight.winner .cell-name {
+    color: #00ff88;
+  }
+
+  @keyframes pulse-winner {
+    0%, 100% { box-shadow: inset 0 0 8px rgba(0,255,136,0.3); }
+    50% { box-shadow: inset 0 0 20px rgba(0,255,136,0.6); }
+  }
+  td.highlight.winner {
+    animation: pulse-highlight-winner 1.5s ease-in-out infinite;
+  }
+  @keyframes pulse-highlight-winner {
+    0%, 100% { box-shadow: inset 0 0 8px rgba(255,215,0,0.4), inset 0 0 8px rgba(0,255,136,0.3); }
+    50% { box-shadow: inset 0 0 20px rgba(255,215,0,0.6), inset 0 0 20px rgba(0,255,136,0.6); }
+  }
+
+  /* Quarter winners */
+  .quarter-winners {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .qw-card {
+    background: #1a1f35;
+    border: 1px solid #2a2f45;
+    border-radius: 10px;
+    padding: 12px 18px;
+    text-align: center;
+    min-width: 120px;
+  }
+  .qw-card.active {
+    border-color: #ffd700;
+  }
+  .qw-label {
+    font-size: 11px;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+  }
+  .qw-score {
+    font-size: 13px;
+    color: #aaa;
+    margin-bottom: 2px;
+  }
+  .qw-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #ffd700;
+  }
+  .qw-name.tbd { color: #444; font-weight: 400; }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 16px;
+    font-size: 12px;
+    color: #888;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .legend-swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+  }
+  .swatch-aaron {
+    background: rgba(255, 200, 0, 0.3);
+    border: 2px solid rgba(255, 200, 0, 0.5);
+  }
+  .swatch-winner {
+    background: rgba(0, 255, 100, 0.2);
+    border: 2px solid #00ff88;
+  }
+
+  /* Mobile: abbreviated names, compact grid */
+  .name-short { display: none; }
+
+  @media (max-width: 768px) {
+    body { padding: 10px; }
+
+    .scoreboard {
+      gap: 12px;
+      padding: 12px 16px;
+      margin-bottom: 12px;
+    }
+    .team { min-width: auto; }
+    .team-name { font-size: 11px; letter-spacing: 1px; }
+    .team-score { font-size: 36px; }
+    .game-status { font-size: 13px; }
+    .game-clock { font-size: 11px; }
+    .last-digit-indicator { font-size: 10px; }
+
+    .controls {
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .highlight-input { width: 140px; font-size: 13px; padding: 6px 10px; }
+    .refresh-btn { padding: 6px 12px; font-size: 12px; }
+    .refresh-status { font-size: 11px; width: 100%; text-align: center; }
+
+    th, td {
+      width: 34px;
+      min-width: 34px;
+      height: 34px;
+      padding: 2px;
+      font-size: 10px;
+    }
+    th { font-size: 12px; }
+    .corner { font-size: 8px; }
+
+    .name-full { display: none; }
+    .name-short { display: block; font-size: 9px; line-height: 1.2; }
+    td.highlight .name-short { color: #ffd700; font-weight: 700; }
+    td.highlight.winner .name-short { color: #00ff88; }
+
+    .quarter-winners { gap: 6px; margin-top: 10px; }
+    .qw-card { padding: 8px 10px; min-width: 70px; }
+    .qw-label { font-size: 10px; }
+    .qw-score { font-size: 11px; }
+    .qw-name { font-size: 12px; }
+
+    .legend { gap: 12px; margin-top: 10px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="scoreboard">
+  <div class="team">
+    <div class="team-name patriots">Patriots</div>
+    <div class="team-score" id="score-ne">0</div>
+    <div class="last-digit-indicator" id="digit-ne">last digit: 0</div>
+  </div>
+  <div class="score-divider">
+    <div class="game-status" id="game-status">PRE-GAME</div>
+    <div class="game-clock" id="game-clock">Kickoff 6:30 PM ET</div>
+  </div>
+  <div class="team">
+    <div class="team-name seahawks">Seahawks</div>
+    <div class="team-score" id="score-sea">0</div>
+    <div class="last-digit-indicator" id="digit-sea">last digit: 0</div>
+  </div>
+</div>
+
+<div class="controls">
+  <input type="text" id="highlight-input" class="highlight-input" placeholder="Highlight name..." value="Aaron" oninput="updateHighlights()">
+  <button class="refresh-btn" onclick="fetchScore()">Refresh Now</button>
+  <span class="refresh-status" id="refresh-status">Auto-refresh every 30s</span>
+</div>
+
+<div class="grid-wrapper">
+  <table id="grid"></table>
+</div>
+
+<div class="quarter-winners" id="quarter-winners"></div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-swatch swatch-aaron"></div> <span id="legend-highlight">Highlighted Squares</span></div>
+  <div class="legend-item"><div class="legend-swatch swatch-winner"></div> Current Winning Square</div>
+</div>
+
+<script>
+// =====================================================================
+// NAME DICTIONARY
+// =====================================================================
+// Fix a spelling here → it updates every cell that uses that key.
+// Keys are lowercase identifiers. Values are the display names.
+// To rename someone: just change the value.
+// To add someone new: add a new key-value pair.
+const NAMES = {
+  aaron:     "Aaron",
+  al:        "Al",
+  brent:     "Brent",
+  christine: "Christine",
+  eli:       "Eli",
+  elie:      "Elie",
+  eliz:      "Eliz",
+  emiliano:  "Emiliano",
+  emilio:    "Emilio",
+  estell:    "Estell",
+  estelle:   "Estelle",
+  graham:    "Graham",
+  jimC:      "Jim C",
+  jimL:      "Jim L",
+  jimY:      "Jim Y",
+  joel:      "Joel",
+  john:      "John",
+  johnV:     "John V.",
+  jv:        "J.V.",
+  kaden:     "Kaden",
+  kal:       "Kal",
+  kalen:     "Kalen",
+  ken:       "Ken",
+  leo:       "Leo",
+  mauricio:  "Mauricio",
+  mayora:    "Mayora",
+  mayur:     "Mayur",
+  mayura:    "Mayura",
+  munther:   "Munther",
+  ray:       "Ray",
+  ron:       "Ron",
+  ross:      "Ross",
+  roy:       "Roy",
+  satish:    "Satish",
+  scott:     "Scott",
+  steve:     "Steve",
+  tony:      "Tony",
+  tron:      "Tron",
+  william:   "William",
+  yosh:      "Yosh",
+};
+
+// =====================================================================
+// GRID DATA
+// =====================================================================
+// Each cell is an array of name keys from the NAMES dictionary above.
+// Layout matches the physical board:
+//   Columns (left→right) = Patriots digits: 7, 8, 1, 3, 9, 2, 6, 4, 5, 0
+//   Rows (top→bottom)    = Seahawks digits: 0, 3, 5, 1, 2, 6, 7, 4, 9, 8
+//
+// To fix a name placement: move the key to the correct cell.
+// To fix a spelling: edit the NAMES dictionary above instead.
+const GRID = {
+  //         PAT:7              8              1                  3                  9              2                  6                  4                  5              0
+  0: { 7: ["ross"],      8: ["brent"],    1: ["graham","mauricio"], 3: ["aaron","munther"], 9: ["jimL"],     2: ["scott","ray"],    6: ["al","jimL","satish"], 4: ["joel","mauricio"], 5: ["brent","kal"],  0: ["jimL","ross"] },
+  3: { 7: ["elie","john"], 8: ["ray"],    1: ["emiliano","eli"],  3: ["brent","mayura"],  9: ["estell"],   2: ["mauricio"],       6: ["aaron","scott"],   4: ["steve","scott"],  5: ["christine"],    0: ["aaron","kal"] },
+  5: { 7: ["brent","ron"], 8: ["yosh","steve"], 1: ["munther"],   3: ["emiliano"],        9: ["john","leo"], 2: ["emiliano","kaden"], 6: ["christine","mauricio"], 4: ["roy"],       5: ["aaron","kal"],  0: ["emilio","steve"] },
+  1: { 7: ["joel","mauricio"], 8: ["graham","roy"], 1: ["jimY"], 3: ["scott","elie"],    9: ["tony","roy"], 2: ["tron"],           6: ["mauricio"],        4: ["william","joel"], 5: ["estelle","elie"], 0: ["joel","ron"] },
+  2: { 7: ["aaron","leo"], 8: ["mayora","john"], 1: ["mayura"],  3: ["tony"],            9: ["scott"],    2: ["emiliano","leo"],  6: ["jv","brent"],      4: ["johnV"],          5: ["joel"],         0: ["roy","leo"] },
+  6: { 7: ["joel","mauricio"], 8: ["tony","mauricio"], 1: ["eli","kal"], 3: ["leo"],     9: ["william","mayura"], 2: ["graham"],   6: ["eliz"],            4: ["estelle","mauricio"], 5: ["kal","mauricio"], 0: ["kal","john"] },
+  7: { 7: ["steve","roy"], 8: ["jimL","mayur"], 1: ["aaron"],    3: ["jimL","mauricio"], 9: ["mayur","tony"], 2: ["leo","roy"],    6: ["jimC","scott"],    4: ["munther","william"], 5: ["roy","leo"],  0: ["joel","emiliano"] },
+  4: { 7: ["steve","scott"], 8: ["aaron","joel"], 1: ["ray","graham"], 3: ["graham","leo"], 9: ["aaron","ron"], 2: ["william","ken"], 6: ["william"],     4: ["munther","william"], 5: ["roy","leo"],  0: ["joel","emiliano"] },
+  9: { 7: ["steve","scott"], 8: ["steve","scott"], 1: ["jimL","mauricio"], 3: ["brent","mauricio"], 9: ["leo","roy"], 2: ["kalen","roy"], 6: ["aaron","kal"], 4: ["brent","tony"], 5: ["roy","leo"], 0: ["joel","steve"] },
+  8: { 7: ["scott","leo"], 8: ["kal","aaron"], 1: ["steve","scott"], 3: ["roy","leo"],  9: ["jimL","graham"], 2: ["aaron","john"], 6: ["steve","scott"],  4: ["leo","roy"],      5: ["steve","scott"], 0: ["kal"] },
+};
+
+// =====================================================================
+// BOARD LAYOUT (matches physical board)
+// =====================================================================
+const patCols = [7, 8, 1, 3, 9, 2, 6, 4, 5, 0];
+const seaRows = [0, 3, 5, 1, 2, 6, 7, 4, 9, 8];
+
+// =====================================================================
+// HELPERS
+// =====================================================================
+
+// Resolve a cell's name keys into a display string
+function cellName(seaDigit, patDigit) {
+  const keys = GRID[seaDigit]?.[patDigit] || [];
+  return keys.map(k => NAMES[k] || k).join("\n");
+}
+
+// Build the grid lookup used by the rest of the app: grid[sea][pat] = "Name"
+const grid = {};
+for (const sea of seaRows) {
+  grid[sea] = {};
+  for (const pat of patCols) {
+    grid[sea][pat] = cellName(sea, pat);
+  }
+}
+
+function getSearchTerm() {
+  return (document.getElementById("highlight-input")?.value || "").trim().toLowerCase();
+}
+
+function isHighlighted(name) {
+  const term = getSearchTerm();
+  return term.length > 0 && name && name.toLowerCase().includes(term);
+}
+
+function updateHighlights() {
+  for (const seaDigit of seaRows) {
+    for (const patDigit of patCols) {
+      const name = grid[seaDigit][patDigit] || "";
+      const cell = document.getElementById(`cell-${seaDigit}-${patDigit}`);
+      if (!cell) continue;
+      cell.classList.toggle("highlight", isHighlighted(name));
+    }
+  }
+  updateLegend();
+}
+
+function abbreviate(name) {
+  if (!name) return "";
+  return name.split("\n").map(n => n.trim().substring(0, 2)).join("\n");
+}
+
+// State
+let neScore = 0;
+let seaScore = 0;
+let quarterWinners = { Q1: null, Q2: null, Q3: null, Final: null };
+
+// Build the grid table
+function buildGrid() {
+  const table = document.getElementById("grid");
+  table.innerHTML = "";
+
+  // Header row: corner + Patriots digits
+  let headerRow = "<tr><th class='corner'>PAT &rarr;<br>SEA &darr;</th>";
+  for (const col of patCols) {
+    headerRow += `<th class="col-header">${col}</th>`;
+  }
+  headerRow += "</tr>";
+  table.innerHTML += headerRow;
+
+  // Data rows
+  for (const seaDigit of seaRows) {
+    let row = `<tr><th class="row-header">${seaDigit}</th>`;
+    for (const patDigit of patCols) {
+      const name = grid[seaDigit][patDigit] || "";
+      const cellId = `cell-${seaDigit}-${patDigit}`;
+      const hl = isHighlighted(name) ? " highlight" : "";
+      const displayName = name.replace(/\n/g, "<br>");
+      const shortName = abbreviate(name).replace(/\n/g, "<br>");
+      row += `<td class="cell${hl}" id="${cellId}"><div class="cell-name"><span class="name-full">${displayName}</span><span class="name-short">${shortName}</span></div></td>`;
+    }
+    row += "</tr>";
+    table.innerHTML += row;
+  }
+
+  updateWinnerHighlight();
+}
+
+// Update which cell has the "winner" highlight
+function updateWinnerHighlight() {
+  // Remove old winner
+  document.querySelectorAll("td.winner").forEach(el => el.classList.remove("winner"));
+
+  const patLastDigit = neScore % 10;
+  const seaLastDigit = seaScore % 10;
+
+  const cell = document.getElementById(`cell-${seaLastDigit}-${patLastDigit}`);
+  if (cell) cell.classList.add("winner");
+
+  document.getElementById("digit-ne").textContent = `last digit: ${patLastDigit}`;
+  document.getElementById("digit-sea").textContent = `last digit: ${seaLastDigit}`;
+}
+
+// Fetch score from ESPN
+async function fetchScore() {
+  const statusEl = document.getElementById("refresh-status");
+  statusEl.textContent = "Fetching...";
+
+  try {
+    const resp = await fetch("https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard/401772988");
+    const data = await resp.json();
+
+    const competition = data.competitions?.[0];
+    if (!competition) throw new Error("No competition data");
+
+    const competitors = competition.competitors || [];
+    for (const team of competitors) {
+      const abbr = team.team?.abbreviation;
+      const score = parseInt(team.score, 10) || 0;
+      if (abbr === "NE") neScore = score;
+      if (abbr === "SEA") seaScore = score;
+    }
+
+    document.getElementById("score-ne").textContent = neScore;
+    document.getElementById("score-sea").textContent = seaScore;
+
+    // Game status
+    const status = data.status || competition.status;
+    const statusType = status?.type?.name;
+    const period = status?.period || 0;
+    const clock = status?.displayClock || "";
+
+    const gameStatusEl = document.getElementById("game-status");
+    const gameClockEl = document.getElementById("game-clock");
+
+    if (statusType === "STATUS_SCHEDULED") {
+      gameStatusEl.textContent = "PRE-GAME";
+      gameClockEl.textContent = "Kickoff 6:30 PM ET";
+    } else if (statusType === "STATUS_IN_PROGRESS" || statusType === "STATUS_HALFTIME") {
+      if (statusType === "STATUS_HALFTIME") {
+        gameStatusEl.textContent = "HALFTIME";
+        gameClockEl.textContent = "";
+      } else {
+        const qNames = ["", "1ST QTR", "2ND QTR", "3RD QTR", "4TH QTR", "OT"];
+        gameStatusEl.textContent = qNames[period] || `Q${period}`;
+        gameClockEl.textContent = clock;
+      }
+    } else if (statusType === "STATUS_END_PERIOD") {
+      const qNames = ["", "END 1ST", "HALFTIME", "END 3RD", "END 4TH"];
+      gameStatusEl.textContent = qNames[period] || `END Q${period}`;
+      gameClockEl.textContent = "";
+
+      // Record quarter winner
+      const patLast = neScore % 10;
+      const seaLast = seaScore % 10;
+      const winnerName = grid[seaLast]?.[patLast] || "???";
+      if (period === 1 && !quarterWinners.Q1) quarterWinners.Q1 = { name: winnerName, ne: neScore, sea: seaScore };
+      if (period === 2 && !quarterWinners.Q2) quarterWinners.Q2 = { name: winnerName, ne: neScore, sea: seaScore };
+      if (period === 3 && !quarterWinners.Q3) quarterWinners.Q3 = { name: winnerName, ne: neScore, sea: seaScore };
+    } else if (statusType === "STATUS_FINAL") {
+      gameStatusEl.textContent = "FINAL";
+      gameClockEl.textContent = "";
+      const patLast = neScore % 10;
+      const seaLast = seaScore % 10;
+      const winnerName = grid[seaLast]?.[patLast] || "???";
+      if (!quarterWinners.Final) quarterWinners.Final = { name: winnerName, ne: neScore, sea: seaScore };
+    }
+
+    updateWinnerHighlight();
+    renderQuarterWinners();
+
+    const now = new Date().toLocaleTimeString();
+    statusEl.textContent = `Updated ${now} - next in 30s`;
+  } catch (err) {
+    console.error("Fetch error:", err);
+    statusEl.textContent = `Error: ${err.message} - retrying in 30s`;
+  }
+}
+
+// Render quarter winner cards
+function renderQuarterWinners() {
+  const container = document.getElementById("quarter-winners");
+  const quarters = [
+    { key: "Q1", label: "Q1" },
+    { key: "Q2", label: "Half" },
+    { key: "Q3", label: "Q3" },
+    { key: "Final", label: "Final" }
+  ];
+
+  container.innerHTML = quarters.map(q => {
+    const data = quarterWinners[q.key];
+    const active = data ? " active" : "";
+    const scoreText = data ? `NE ${data.ne} - SEA ${data.sea}` : "";
+    const nameText = data ? data.name.replace(/\n/g, " ") : "TBD";
+    const nameClass = data ? "" : " tbd";
+    const hlClass = data && isHighlighted(data.name) ? ' style="color:#00ff88"' : "";
+    return `
+      <div class="qw-card${active}">
+        <div class="qw-label">${q.label}</div>
+        <div class="qw-score">${scoreText}</div>
+        <div class="qw-name${nameClass}"${hlClass}>${nameText}</div>
+      </div>`;
+  }).join("");
+}
+
+// Update legend text based on search input
+function updateLegend() {
+  const term = getSearchTerm();
+  const el = document.getElementById("legend-highlight");
+  el.textContent = term ? `"${term}" Squares` : "Highlighted Squares";
+}
+
+// Init
+buildGrid();
+updateLegend();
+renderQuarterWinners();
+fetchScore();
+setInterval(fetchScore, 30000);
+</script>
+</body>
+</html>
