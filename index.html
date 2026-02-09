@@ -567,21 +567,46 @@ async function fetchScore() {
       const qNames = ["", "END 1ST", "HALFTIME", "END 3RD", "END 4TH"];
       gameStatusEl.textContent = qNames[period] || `END Q${period}`;
       gameClockEl.textContent = "";
-
-      // Record quarter winner
-      const patLast = neScore % 10;
-      const seaLast = seaScore % 10;
-      const winnerName = grid[seaLast]?.[patLast] || "???";
-      if (period === 1 && !quarterWinners.Q1) quarterWinners.Q1 = { name: winnerName, ne: neScore, sea: seaScore };
-      if (period === 2 && !quarterWinners.Q2) quarterWinners.Q2 = { name: winnerName, ne: neScore, sea: seaScore };
-      if (period === 3 && !quarterWinners.Q3) quarterWinners.Q3 = { name: winnerName, ne: neScore, sea: seaScore };
     } else if (statusType === "STATUS_FINAL") {
       gameStatusEl.textContent = "FINAL";
       gameClockEl.textContent = "";
+    }
+
+    // Record quarter winners from linescores (works retroactively)
+    const neTeam = competitors.find(t => t.team?.abbreviation === "NE");
+    const seaTeam = competitors.find(t => t.team?.abbreviation === "SEA");
+    const neLinescores = neTeam?.linescores || [];
+    const seaLinescores = seaTeam?.linescores || [];
+
+    // Build cumulative scores at end of each quarter
+    const qMap = [
+      { idx: 0, key: "Q1" },   // end of Q1
+      { idx: 1, key: "Q2" },   // end of Q2 (halftime)
+      { idx: 2, key: "Q3" },   // end of Q3
+    ];
+    for (const { idx, key } of qMap) {
+      if (!quarterWinners[key] && neLinescores.length > idx && seaLinescores.length > idx) {
+        // Only record if that quarter is complete (we're past it)
+        if (period > idx + 1 || statusType === "STATUS_FINAL") {
+          let neCum = 0, seaCum = 0;
+          for (let i = 0; i <= idx; i++) {
+            neCum += parseInt(neLinescores[i]?.value, 10) || 0;
+            seaCum += parseInt(seaLinescores[i]?.value, 10) || 0;
+          }
+          const patLast = neCum % 10;
+          const seaLast = seaCum % 10;
+          const winnerName = grid[seaLast]?.[patLast] || "???";
+          quarterWinners[key] = { name: winnerName, ne: neCum, sea: seaCum };
+        }
+      }
+    }
+
+    // Final winner
+    if (!quarterWinners.Final && statusType === "STATUS_FINAL") {
       const patLast = neScore % 10;
       const seaLast = seaScore % 10;
       const winnerName = grid[seaLast]?.[patLast] || "???";
-      if (!quarterWinners.Final) quarterWinners.Final = { name: winnerName, ne: neScore, sea: seaScore };
+      quarterWinners.Final = { name: winnerName, ne: neScore, sea: seaScore };
     }
 
     updateWinnerHighlight();
