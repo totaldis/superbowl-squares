@@ -146,7 +146,7 @@
   td.cell {
     background: #1a1f35;
     transition: all 0.3s ease;
-    cursor: default;
+    cursor: pointer;
   }
   td.cell:hover {
     background: #252b45;
@@ -155,6 +155,19 @@
     font-size: 11px;
     line-height: 1.3;
     word-break: break-word;
+  }
+
+  /* Selected cell crosshair */
+  td.selected {
+    background: rgba(100, 140, 255, 0.25) !important;
+    box-shadow: inset 0 0 0 2px rgba(100, 140, 255, 0.6);
+  }
+  td.crosshair {
+    background: rgba(100, 140, 255, 0.08) !important;
+  }
+  th.crosshair {
+    background: #2a3560 !important;
+    color: #7aa0ff !important;
   }
 
   /* Aaron highlight */
@@ -481,27 +494,81 @@ function buildGrid() {
   // Header row: corner + Patriots digits
   let headerRow = "<tr><th class='corner'>PAT &rarr;<br>SEA &darr;</th>";
   for (const col of patCols) {
-    headerRow += `<th class="col-header">${col}</th>`;
+    headerRow += `<th class="col-header" id="col-header-${col}">${col}</th>`;
   }
   headerRow += "</tr>";
   table.innerHTML += headerRow;
 
   // Data rows
   for (const seaDigit of seaRows) {
-    let row = `<tr><th class="row-header">${seaDigit}</th>`;
+    let row = `<tr><th class="row-header" id="row-header-${seaDigit}">${seaDigit}</th>`;
     for (const patDigit of patCols) {
       const name = grid[seaDigit][patDigit] || "";
       const cellId = `cell-${seaDigit}-${patDigit}`;
       const hl = isHighlighted(name) ? " highlight" : "";
       const displayName = name.replace(/\n/g, "<br>");
       const shortName = abbreviate(name).replace(/\n/g, "<br>");
-      row += `<td class="cell${hl}" id="${cellId}"><div class="cell-name"><span class="name-full">${displayName}</span><span class="name-short">${shortName}</span></div></td>`;
+      row += `<td class="cell${hl}" id="${cellId}" data-sea="${seaDigit}" data-pat="${patDigit}"><div class="cell-name"><span class="name-full">${displayName}</span><span class="name-short">${shortName}</span></div></td>`;
     }
     row += "</tr>";
     table.innerHTML += row;
   }
 
+  // Click handler for crosshair selection
+  table.addEventListener("click", (e) => {
+    const td = e.target.closest("td.cell");
+    if (!td) return;
+    const sea = td.dataset.sea;
+    const pat = td.dataset.pat;
+    selectCell(sea, pat);
+  });
+
   updateWinnerHighlight();
+}
+
+// Crosshair: highlight the selected cell's entire row and column
+let selectedSea = null, selectedPat = null;
+function selectCell(sea, pat) {
+  // Toggle off if clicking the same cell
+  if (selectedSea === sea && selectedPat === pat) {
+    selectedSea = null;
+    selectedPat = null;
+  } else {
+    selectedSea = sea;
+    selectedPat = pat;
+  }
+  applyCrosshair();
+}
+
+function applyCrosshair() {
+  // Clear previous
+  document.querySelectorAll(".crosshair").forEach(el => el.classList.remove("crosshair"));
+  document.querySelectorAll(".selected").forEach(el => el.classList.remove("selected"));
+
+  if (selectedSea === null) return;
+
+  // Highlight all cells in the same row and column
+  for (const patDigit of patCols) {
+    const cell = document.getElementById(`cell-${selectedSea}-${patDigit}`);
+    if (cell) cell.classList.add("crosshair");
+  }
+  for (const seaDigit of seaRows) {
+    const cell = document.getElementById(`cell-${seaDigit}-${selectedPat}`);
+    if (cell) cell.classList.add("crosshair");
+  }
+
+  // Highlight the selected cell itself
+  const selected = document.getElementById(`cell-${selectedSea}-${selectedPat}`);
+  if (selected) {
+    selected.classList.remove("crosshair");
+    selected.classList.add("selected");
+  }
+
+  // Highlight the header cells
+  const colHeader = document.getElementById(`col-header-${selectedPat}`);
+  const rowHeader = document.getElementById(`row-header-${selectedSea}`);
+  if (colHeader) colHeader.classList.add("crosshair");
+  if (rowHeader) rowHeader.classList.add("crosshair");
 }
 
 // Update which cell has the "winner" highlight
